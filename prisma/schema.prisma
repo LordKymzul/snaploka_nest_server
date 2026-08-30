@@ -1,0 +1,242 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model EventMedia {
+  id              Int      @id @default(autoincrement())
+  guid            String   @unique @default(dbgenerated("(gen_random_uuid())::text")) @db.VarChar(255)
+  guest_name      String?  @default("Anonymous Guest") @db.VarChar(255)
+  status          String   @default("PENDING") @db.VarChar(50)
+  mime_type       String   @db.VarChar(50)
+  storage_key     String   @db.VarChar(512)
+  thumbnail_key   String?  @db.VarChar(512)
+  file_size_bytes BigInt
+  metadata        Json?
+  event_id        Int
+  created_at      DateTime @default(now()) @db.Timestamp(6)
+  updated_at      DateTime @default(now()) @db.Timestamp(6)
+  event           Event    @relation(fields: [event_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_event_media_event_id")
+
+  @@index([event_id, status, created_at(sort: Desc)], map: "idx_event_media_gallery")
+  @@map("event_media")
+}
+
+model Admin {
+  id         Int       @id @default(autoincrement())
+  guid       String    @unique @default(dbgenerated("(gen_random_uuid())::text")) @db.VarChar(255)
+  is_active  Boolean   @default(true)
+  metadata   Json?
+  user_id    Int       @unique
+  created_at DateTime  @default(now()) @db.Timestamp(6)
+  updated_at DateTime  @default(now()) @db.Timestamp(6)
+  deleted_at DateTime? @db.Timestamp(6)
+  user       User      @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_admins_user_id")
+
+  @@index([user_id], map: "idx_admins_user_id")
+  @@map("admins")
+}
+
+model AuthProvider {
+  id          Int                @id @default(autoincrement())
+  guid        String             @unique @default(dbgenerated("(gen_random_uuid())::text")) @db.VarChar(255)
+  name        String             @unique @db.VarChar(255)
+  description String?
+  is_active   Boolean            @default(true)
+  metadata    Json?
+  created_at  DateTime           @default(now()) @db.Timestamp(6)
+  updated_at  DateTime           @default(now()) @db.Timestamp(6)
+  users       UserAuthProvider[]
+
+  @@index([name], map: "idx_auth_providers_name")
+  @@map("auth_providers")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model Event {
+  id                    Int          @id @default(autoincrement())
+  guid                  String       @unique @default(dbgenerated("(gen_random_uuid())::text")) @db.VarChar(255)
+  name                  String       @db.VarChar(255)
+  description           String?
+  status                String       @default("DRAFT") @db.VarChar(50)
+  type                  String       @db.VarChar(50)
+  start_date            DateTime     @db.Timestamp(6)
+  end_date              DateTime     @db.Timestamp(6)
+  max_media_allowed     Int?
+  max_storage_bytes     BigInt?
+  current_media_count   Int          @default(0)
+  current_storage_bytes BigInt       @default(0)
+  user_id               Int
+  metadata              Json?
+  created_at            DateTime     @default(now()) @db.Timestamp(6)
+  updated_at            DateTime     @default(now()) @db.Timestamp(6)
+  media                 EventMedia[]
+  user                  User         @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_events_user_id")
+  order                 Order?
+
+  @@index([user_id, status], map: "idx_events_user_status")
+  @@map("events")
+}
+
+model LoginAttempt {
+  id              Int      @id @default(autoincrement())
+  guid            String   @unique @default(dbgenerated("(gen_random_uuid())::text")) @db.VarChar(255)
+  email_attempted String   @db.VarChar(255)
+  user_id         Int?
+  is_success      Boolean
+  failure_reason  String?  @db.VarChar(100)
+  ip_address      String   @db.VarChar(45)
+  user_agent      String?  @db.VarChar(500)
+  metadata        Json?
+  created_at      DateTime @default(now()) @db.Timestamp(6)
+  user            User?    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_login_attempts_user_id")
+
+  @@index([email_attempted, is_success, created_at(sort: Desc)], map: "idx_login_attempts_email_lockout")
+  @@index([ip_address, is_success, created_at(sort: Desc)], map: "idx_login_attempts_ip_rate_limit")
+  @@index([user_id, created_at(sort: Desc)], map: "idx_login_attempts_user_history")
+  @@map("login_attempts")
+}
+
+model Role {
+  id          Int        @id @default(autoincrement())
+  guid        String     @unique @default(dbgenerated("(gen_random_uuid())::text")) @db.VarChar(255)
+  name        String     @unique @db.VarChar(255)
+  description String?
+  is_active   Boolean    @default(true)
+  metadata    Json?
+  created_at  DateTime   @default(now()) @db.Timestamp(6)
+  updated_at  DateTime   @default(now()) @db.Timestamp(6)
+  users       UserRole[]
+
+  @@index([name], map: "idx_roles_name")
+  @@map("roles")
+}
+
+model Token {
+  id         Int      @id @default(autoincrement())
+  guid       String   @unique @default(dbgenerated("(gen_random_uuid())::text")) @db.VarChar(255)
+  token      String   @unique @db.VarChar(255)
+  type       String   @db.VarChar(50)
+  expires_at DateTime @db.Timestamp(6)
+  created_at DateTime @default(now()) @db.Timestamp(6)
+  updated_at DateTime @default(now()) @db.Timestamp(6)
+  user_id    Int
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_tokens_user_id")
+
+  @@index([expires_at], map: "idx_tokens_expires_at")
+  @@index([token], map: "idx_tokens_token")
+  @@index([type], map: "idx_tokens_type")
+  @@index([user_id], map: "idx_tokens_user_id")
+  @@map("tokens")
+}
+
+model UserAuthProvider {
+  id               Int          @id @default(autoincrement())
+  guid             String       @unique @default(dbgenerated("(gen_random_uuid())::text")) @db.VarChar(255)
+  user_id          Int
+  auth_provider_id Int
+  created_at       DateTime     @default(now()) @db.Timestamp(6)
+  updated_at       DateTime     @default(now()) @db.Timestamp(6)
+  auth_provider    AuthProvider @relation(fields: [auth_provider_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_user_auth_providers_auth_provider_id")
+  user             User         @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_user_auth_providers_user_id")
+
+  @@unique([user_id, auth_provider_id], map: "uk_user_auth_providers_unique")
+  @@index([auth_provider_id], map: "idx_user_auth_providers_auth_provider_id")
+  @@index([user_id], map: "idx_user_auth_providers_user_id")
+  @@map("user_auth_providers")
+}
+
+model UserRole {
+  id         Int      @id @default(autoincrement())
+  guid       String   @unique @default(dbgenerated("(gen_random_uuid())::text")) @db.VarChar(255)
+  user_id    Int
+  role_id    Int
+  created_at DateTime @default(now()) @db.Timestamp(6)
+  updated_at DateTime @default(now()) @db.Timestamp(6)
+  role       Role     @relation(fields: [role_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_user_roles_role_id")
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_user_roles_user_id")
+
+  @@unique([user_id, role_id], map: "uk_user_roles_unique")
+  @@index([role_id], map: "idx_user_roles_role_id")
+  @@index([user_id], map: "idx_user_roles_user_id")
+  @@map("user_roles")
+}
+
+model User {
+  id             Int                @id @default(autoincrement())
+  guid           String             @unique @default(dbgenerated("(gen_random_uuid())::text")) @db.VarChar(255)
+  name           String?            @db.VarChar(255)
+  email          String             @unique @db.VarChar(255)
+  password       String?            @db.VarChar(255)
+  is_active      Boolean            @default(true)
+  metadata       Json?
+  last_signed_at DateTime?          @db.Timestamp(6)
+  created_at     DateTime           @default(now()) @db.Timestamp(6)
+  updated_at     DateTime           @default(now()) @db.Timestamp(6)
+  admin          Admin?
+  events         Event[]
+  login_Attempts LoginAttempt[]
+  orders         Order[]
+  tokens         Token[]
+  auth_providers UserAuthProvider[]
+  roles          UserRole[]
+
+  @@index([created_at], map: "idx_users_created_at")
+  @@index([email], map: "idx_users_email")
+  @@map("users")
+}
+
+model Order {
+  id                  Int           @id @default(autoincrement())
+  guid                String        @unique @default(dbgenerated("(gen_random_uuid())::text")) @db.VarChar(255)
+  user_id             Int
+  package_id          Int?
+  event_id            Int?          @unique
+  package_name        String?       @db.VarChar(255)
+  amount              Int
+  currency            String        @default("USD") @db.VarChar(3)
+  max_media_allowed   Int
+  max_storage_bytes   BigInt
+  status              String        @default("PENDING") @db.VarChar(50)
+  payment_provider    String        @db.VarChar(50)
+  provider_order_id   String?       @db.VarChar(255)
+  provider_payment_id String?       @db.VarChar(255)
+  payment_url         String?
+  metadata            Json?
+  paid_at             DateTime?     @db.Timestamp(6)
+  created_at          DateTime      @default(now()) @db.Timestamp(6)
+  updated_at          DateTime      @default(now()) @db.Timestamp(6)
+  event               Event?        @relation(fields: [event_id], references: [id], onUpdate: NoAction, map: "fk_orders_event_id")
+  event_package       EventPackage? @relation(fields: [package_id], references: [id], onUpdate: NoAction, map: "fk_orders_package_id")
+  user                User          @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_orders_user_id")
+
+  @@index([payment_provider, provider_order_id], map: "idx_orders_provider_order_id")
+  @@index([user_id, status], map: "idx_orders_user_status")
+  @@map("orders")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model EventPackage {
+  id              Int       @id @default(autoincrement())
+  guid            String    @unique @default(dbgenerated("(gen_random_uuid())::text")) @db.VarChar(255)
+  name            String    @unique @db.VarChar(255)
+  description     String?
+  price           Int
+  currency        String    @default("USD") @db.VarChar(3)
+  max_media_count Int
+  max_media_size  BigInt
+  is_active       Boolean   @default(true)
+  metadata        Json?
+  created_at      DateTime  @default(now()) @db.Timestamp(6)
+  updated_at      DateTime  @default(now()) @db.Timestamp(6)
+  deleted_at      DateTime? @db.Timestamp(6)
+  orders          Order[]
+
+  @@index([is_active], map: "idx_event_packages_active")
+  @@map("event_packages")
+}
