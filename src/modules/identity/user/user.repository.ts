@@ -16,7 +16,8 @@ export class UserRepository {
         u.metadata,
         u.last_signed_at,
         u.created_at,
-        u.updated_at
+        u.updated_at,
+        u.id as internal_id
       FROM users u
       WHERE u.email = ${email}
       LIMIT 1
@@ -39,7 +40,8 @@ export class UserRepository {
         u.metadata,
         u.last_signed_at,
         u.created_at,
-        u.updated_at
+        u.updated_at,
+        u.id as internal_id
       FROM users u
       WHERE u.guid = ${guid}
       LIMIT 1

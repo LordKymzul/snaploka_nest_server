@@ -151,7 +151,7 @@ export class OrderService {
     page: number;
     limit: number;
   }> {
-    const { status, payment_provider, keyword, page, limit } = queryOrderDto;
+    const { status, payment_provider, keyword, page, limit, with_event, with_user, with_event_package } = queryOrderDto;
 
     const pageNum = Number(page || PAGINATION_PAGE);
     const limitNum = Number(limit || PAGINATION_LIMIT);
@@ -190,6 +190,64 @@ export class OrderService {
       ? `WHERE ${whereConditions.join(' AND ')}`
       : '';
 
+    const conditionalFields: string[] = [];
+    if (with_user === 'true') {
+      conditionalFields.push(`
+        json_build_object(
+          'id', u.guid,
+          'name', u.name,
+          'email', u.email,
+          'is_active', u.is_active,
+          'created_at', u.created_at,
+          'updated_at', u.updated_at
+        ) as user
+      `);
+    }
+    if (with_event_package === 'true') {
+      conditionalFields.push(`
+        CASE WHEN ep.id IS NOT NULL THEN json_build_object(
+          'id', ep.guid,
+          'name', ep.name,
+          'description', ep.description,
+          'price', ep.price,
+          'currency', ep.currency,
+          'max_media_count', ep.max_media_count,
+          'max_media_size', ep.max_media_size,
+          'is_active', ep.is_active,
+          'metadata', ep.metadata,
+          'created_at', ep.created_at,
+          'updated_at', ep.updated_at
+        ) ELSE NULL END as package
+      `);
+    }
+    if (with_event === 'true') {
+      conditionalFields.push(`
+        CASE WHEN e.id IS NOT NULL THEN json_build_object(
+          'id', e.guid,
+          'name', e.name,
+          'description', e.description,
+          'status', e.status,
+          'type', e.type,
+          'start_date', e.start_date,
+          'end_date', e.end_date,
+          'max_media_allowed', e.max_media_allowed,
+          'max_storage_bytes', e.max_storage_bytes,
+          'current_media_count', e.current_media_count,
+          'current_storage_bytes', e.current_storage_bytes,
+          'access_mode', e.access_mode,
+          'metadata', e.metadata,
+          'thumbnail_storage_key', e.thumbnail_storage_key,
+          'thumbnail_mime_type', e.thumbnail_mime_type,
+          'thumbnail_file_size', e.thumbnail_file_size,
+          'created_at', e.created_at,
+          'updated_at', e.updated_at
+        ) ELSE NULL END as event
+      `);
+    }
+    const optionalFields = conditionalFields.length > 0
+      ? `, ${conditionalFields.join(', ')}`
+      : '';
+
     const query = `
       SELECT
         o.guid as id,
@@ -210,6 +268,7 @@ export class OrderService {
         o.paid_at,
         o.created_at,
         o.updated_at
+        ${optionalFields}
       FROM orders o
       INNER JOIN users u ON u.id = o.user_id
       LEFT JOIN event_packages ep ON ep.id = o.package_id
@@ -380,4 +439,17 @@ export class OrderService {
 
     return this.orderRepository.findOneByGuid(id);
   }
+
+  async findOneByEventIdAndUserId(event_id: string, user_id: string): Promise<OrderEntity | null> {
+    const [eventInternalId, userInternalId] = await Promise.all([
+      this.eventRepository.findInternalIdByGuid(event_id),
+      this.userRepository.findInternalIdByGuid(user_id),
+    ]);
+    if (!eventInternalId || !userInternalId) {
+      return null;
+    }
+    const order = await this.orderRepository.findOneByEventIdAndUserId(eventInternalId, userInternalId);
+    return order;
+  }
+
 }

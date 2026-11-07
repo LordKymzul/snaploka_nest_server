@@ -18,7 +18,6 @@ import { QueryAdminDto } from './dto/query-admin.dto';
 import { getPagination, handleError } from 'src/core/util/helper';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { AppLoggerService } from 'src/core/logging/app-logger/app-logger.service';
-import { Admin } from './entities/admin.entity';
 import { JwtAdminGuard } from 'src/core/shared/guard/jwt-admin.guard';
 
 @ApiTags('Admin')

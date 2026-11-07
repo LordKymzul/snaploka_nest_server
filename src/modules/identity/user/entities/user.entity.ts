@@ -14,6 +14,7 @@ export class UserEntity {
 
     roles: RoleEntity[];
     auth_providers: AuthProviderEntity[];
+    internal_id: number;
 
     static fromDBApplication(dbApp: any): UserEntity {
         return {
@@ -27,7 +28,8 @@ export class UserEntity {
             created_at: dbApp.created_at,
             updated_at: dbApp.updated_at,
             roles: dbApp.roles ? dbApp.roles.map((r: any) => RoleEntity.fromDBApplication(r)) : [],
-            auth_providers: dbApp.user_auth_providers ? dbApp.user_auth_providers.map((ap: any) => AuthProviderEntity.fromDBApplication(ap)) : [],
+            auth_providers: dbApp.auth_providers ? dbApp.auth_providers.map((ap: any) => AuthProviderEntity.fromDBApplication(ap)) : [],
+            internal_id: dbApp.internal_id,
         };
     }
 }

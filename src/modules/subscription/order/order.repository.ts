@@ -120,4 +120,17 @@ export class OrderRepository {
     }
     return results[0].guid;
   }
+
+  async findOneByEventIdAndUserId(eventId: number, userId: number): Promise<OrderEntity | null> {
+    const results = await this.dbapp.$queryRaw<any[]>`
+      SELECT o.guid as id
+      FROM orders o
+      WHERE o.event_id = ${eventId} AND o.user_id = ${userId}
+      LIMIT 1
+    `;
+    if (!results || results.length === 0) {
+      return null;
+    }
+    return OrderEntity.fromDBApplication(results[0]);
+  }
 }

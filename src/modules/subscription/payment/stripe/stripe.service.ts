@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Config } from 'src/core/util/config';
 import * as Stripe from 'stripe';
 
@@ -9,9 +9,12 @@ import { EventPackageRepository } from '../../event_package/event_package.reposi
 import { OrderService } from '../../order/order.service';
 import { CreateOrderDto } from '../../order/dto/create-order.dto';
 import { AppLoggerService } from 'src/core/logging/app-logger/app-logger.service';
+import { OrderEntity } from '../../order/entities/order.entity';
 
 @Injectable()
 export class StripeService {
+
+    private readonly logger = new Logger(StripeService.name);
 
     private stripe: Stripe;
     constructor(private readonly config: Config, private readonly packageRepository: EventPackageRepository, private readonly eventRepository: EventRepository, private readonly orderService: OrderService, private readonly appLogger: AppLoggerService) {
@@ -46,23 +49,29 @@ export class StripeService {
             throw new NotFoundException('Event not found');
         }
 
-        let createdOrderDto: CreateOrderDto = {
-            event_id: event_id,
-            package_id: package_id,
-            amount: eventPackage.price,
-            currency: eventPackage.currency,
-            max_media_allowed: eventPackage.max_media_count,
-            max_storage_bytes: eventPackage.max_media_size,
-            payment_provider: ORDER_PAYMENT_PROVIDER.STRIPE,
-            status: ORDER_STATUS.PENDING,
-            package_name: eventPackage.name,
-            metadata: {
+        let order: OrderEntity | null = null;
+        order = await this.orderService.findOneByEventIdAndUserId(event_id, user_id);
+        this.logger.log(`Order found: ${order ? 'Yes' : 'No'}`, `${StripeService.name} - ${this.createCheckoutSession.name}`);
+        if (!order) {
+            let createdOrderDto: CreateOrderDto = {
                 event_id: event_id,
                 package_id: package_id,
-            },
-        };
+                amount: eventPackage.price,
+                currency: eventPackage.currency,
+                max_media_allowed: eventPackage.max_media_count,
+                max_storage_bytes: eventPackage.max_media_size,
+                payment_provider: ORDER_PAYMENT_PROVIDER.STRIPE,
+                status: ORDER_STATUS.PENDING,
+                package_name: eventPackage.name,
+                metadata: {
+                    event_id: event_id,
+                    package_id: package_id,
+                },
+            };
 
-        const createdOrder = await this.orderService.create(createdOrderDto, user_id);
+            const createdOrder = await this.orderService.create(createdOrderDto, user_id);
+            order = createdOrder;
+        }
 
         const session = await this.stripe.checkout.sessions.create({
             payment_method_types: ['fpx', 'card'],
@@ -84,7 +93,7 @@ export class StripeService {
             success_url: `https://snaploka.com/dashboard/events/${event_id}?session_id={CHECKOUT_SESSION_ID}`,
             cancel_url: `https://snaploka.com/dashboard/events/${event_id}?cancelled=true`,
             metadata: {
-                order_id: createdOrder.id.toString(),
+                order_id: order.id.toString(),
                 event_id: event_id.toString(),
                 user_id: user_id.toString(),
             },
@@ -95,7 +104,7 @@ export class StripeService {
             throw new Error('Failed to create checkout session');
         }
 
-        await this.orderService.update(createdOrder.id, {
+        await this.orderService.update(order.id, {
             provider_order_id: session.id,
             payment_url: session.url,
 

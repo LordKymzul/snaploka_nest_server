@@ -10,6 +10,11 @@ import { AuthProviderRepository } from '../auth_provider/auth_provider.repositor
 import { UserEntity } from './entities/user.entity';
 import { AdminService } from '../admin/admin.service';
 import { AppLoggerService } from 'src/core/logging/app-logger/app-logger.service';
+import { AuthProviderEntity } from '../auth_provider/entities/auth_provider.entity';
+import { UserAuthProviderEntity } from '../auth_provider/entities/user_auth_provider.entity';
+import { UserRoleEntity } from '../role/entities/user_role.entity';
+import { RoleRepository } from '../role/role.repository';
+import { RoleEntity } from '../role/entities/role.entity';
 
 @Injectable()
 export class UserService {
@@ -19,6 +24,7 @@ export class UserService {
     private readonly authProviderRepository: AuthProviderRepository,
     private readonly adminService: AdminService,
     private readonly appLoggerService: AppLoggerService,
+    private readonly roleRepository: RoleRepository,
   ) { }
 
   async create(createUserDto: CreateUserDto): Promise<UserEntity> {
@@ -102,7 +108,7 @@ export class UserService {
     page: number;
     limit: number;
   }> {
-    const { keyword, is_active, page, limit } = queryUserDto;
+    const { keyword, is_active, page, limit, with_auth_providers, with_roles } = queryUserDto;
 
     const pageNum = Number(page || PAGINATION_PAGE);
     const limitNum = Number(limit || PAGINATION_LIMIT);
@@ -133,6 +139,7 @@ export class UserService {
 
     const query = `
       SELECT
+        u.id as user_internal_id,
         u.guid as id,
         u.name,
         u.email,
@@ -164,9 +171,44 @@ export class UserService {
 
     const total = totalResult[0]?.total || 0;
 
+    let userResults: UserEntity[] = [];
+
+    const userInternalIds = users.map((user) => Number(user.user_internal_id));
+    let authProvidersByUserId: Map<string, UserAuthProviderEntity[]> = new Map();
+    let rolesByUserId: Map<string, UserRoleEntity[]> = new Map();
+    if (with_auth_providers === 'true') {
+      authProvidersByUserId = await this.getAuthProvidersByUserIds(userInternalIds);
+    }
+    if (with_roles === 'true') {
+      rolesByUserId = await this.getRolesByUserIds(userInternalIds);
+    }
+
+
+    userResults = users.map((user) => {
+      const userGuid = user.id;
+      const userAuthProviders = authProvidersByUserId.get(userGuid) ?? [];
+      const userRoles = rolesByUserId.get(userGuid) ?? [];
+      const authProviders = userAuthProviders.map((authProvider) =>
+        AuthProviderEntity.fromDBApplication({
+          name: authProvider.auth_provider_name,
+        })
+      );
+      const roles = userRoles.map((role) =>
+        RoleEntity.fromDBApplication({
+          name: role.role_name,
+        })
+      );
+      return UserEntity.fromDBApplication({
+        ...user,
+        auth_providers: authProviders,
+        roles: roles,
+      });
+    });
+
+
     return {
       total,
-      users: users.map((user) => UserEntity.fromDBApplication(user)),
+      users: userResults,
       page: pageNum,
       limit: limitNum,
     };
@@ -177,7 +219,29 @@ export class UserService {
     if (!user) {
       throw new NotFoundException('User not found');
     }
-    return user;
+    const userInternalIds = [user.internal_id];
+    const [
+      authProvidersByUserId,
+      rolesByUserId,
+    ] = await Promise.all([
+      this.getAuthProvidersByUserIds(userInternalIds),
+      this.getRolesByUserIds(userInternalIds),
+    ]);
+
+    const { internal_id: _, ...userWithoutInternalId } = user;
+    const userAuthProviders = authProvidersByUserId.get(user.id) ?? [];
+    const userRoles = rolesByUserId.get(user.id) ?? [];
+    userWithoutInternalId.auth_providers = userAuthProviders.map((authProvider) =>
+      AuthProviderEntity.fromDBApplication({
+        name: authProvider.auth_provider_name,
+      })
+    );
+    userWithoutInternalId.roles = userRoles.map((role) =>
+      RoleEntity.fromDBApplication({
+        name: role.role_name,
+      })
+    );
+    return userWithoutInternalId as UserEntity;
   }
 
   async findByEmail(email: string): Promise<UserEntity> {
@@ -185,7 +249,29 @@ export class UserService {
     if (!user) {
       throw new NotFoundException('User not found');
     }
-    return user;
+    const userInternalIds = [user.internal_id];
+    const [
+      authProvidersByUserId,
+      rolesByUserId,
+    ] = await Promise.all([
+      this.getAuthProvidersByUserIds(userInternalIds),
+      this.getRolesByUserIds(userInternalIds),
+    ]);
+
+    const { internal_id: _, ...userWithoutInternalId } = user;
+    const userAuthProviders = authProvidersByUserId.get(user.id) ?? [];
+    const userRoles = rolesByUserId.get(user.id) ?? [];
+    userWithoutInternalId.auth_providers = userAuthProviders.map((authProvider) =>
+      AuthProviderEntity.fromDBApplication({
+        name: authProvider.auth_provider_name,
+      })
+    );
+    userWithoutInternalId.roles = userRoles.map((role) =>
+      RoleEntity.fromDBApplication({
+        name: role.role_name,
+      })
+    );
+    return userWithoutInternalId as UserEntity;
   }
 
   async update(id: string, updateUserDto: UpdateUserDto): Promise<UserEntity> {
@@ -258,4 +344,34 @@ export class UserService {
 
     return user.guid;
   }
+
+  private async getAuthProvidersByUserIds(userInternalIds: number[]): Promise<Map<string, UserAuthProviderEntity[]>> {
+    const authProvidersByUserId = new Map<string, UserAuthProviderEntity[]>();
+    if (userInternalIds.length > 0) {
+      const authProviders = await this.authProviderRepository.findAllWithUserByUserInternalIds(userInternalIds);
+      for (const row of authProviders) {
+        const userGuid = row.user_id;
+        const existing = authProvidersByUserId.get(userGuid) ?? [];
+        existing.push(row);
+        authProvidersByUserId.set(userGuid, existing);
+      }
+    }
+    return authProvidersByUserId;
+  }
+
+  private async getRolesByUserIds(userInternalIds: number[]): Promise<Map<string, UserRoleEntity[]>> {
+    const rolesByUserId = new Map<string, UserRoleEntity[]>();
+    if (userInternalIds.length > 0) {
+      const roles = await this.roleRepository.findAllWithUserByUserInternalIds(userInternalIds);
+      for (const row of roles) {
+        const userGuid = row.user_id;
+        const existing = rolesByUserId.get(userGuid) ?? [];
+        existing.push(row);
+        rolesByUserId.set(userGuid, existing);
+      }
+    }
+    return rolesByUserId;
+  }
+
+
 }

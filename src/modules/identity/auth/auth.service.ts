@@ -18,6 +18,11 @@ import { SignUpDto } from './dto/sign-up.dto';
 import { LoginEvent } from './event/login-event';
 import { DbappService } from 'src/core/database/dbapp/dbapp.service';
 import { AdminSignUpDto } from './dto/admin-sign-up.dto';
+import { AdminRepository } from '../admin/admin.repository';
+import { FirebaseService } from 'src/core/shared/firebase/firebase.service';
+import { SignInGoogleDto } from './dto/sign-in-google.dto';
+import { UserRepository } from '../user/user.repository';
+import { AuthProviderRepository } from '../auth_provider/auth_provider.repository';
 
 //change to 10 seconds for testing
 // const EXPIRE_TIME = 10 * 1000;
@@ -36,9 +41,65 @@ export class AuthService {
         private readonly userService: UserService,
         private readonly jwtService: JwtService,
         private readonly config: Config,
+        private readonly adminRepository: AdminRepository,
+        private readonly firebaseService: FirebaseService,
+        private readonly userRepository: UserRepository,
+        private readonly authProviderRepository: AuthProviderRepository,
     ) { }
 
+    async signInGoogle(signInGoogleDto: SignInGoogleDto, clientInfo: ClientInfo) {
+        const {
+            id_token,
+            role
+        } = signInGoogleDto;
 
+
+        const decodedToken = await this.firebaseService.getAuth().verifyIdToken(id_token);
+        const {
+            email,
+            email_verified,
+            name,
+            phone_number,
+            picture,
+            uid,
+        } = decodedToken;
+        if (!email_verified) {
+            throw new BadRequestException('Google email is not verified');
+        }
+
+        if (!email) {
+            throw new BadRequestException('Google email is not found');
+        }
+
+        const existingUser = await this.userRepository.findByEmail(email);
+        if (!existingUser) {
+            if (role === USER_ROLE.ADMIN) {
+                throw new BadRequestException('Admin cannot sign in with Google');
+            }
+            let signUpDto: SignUpDto = {
+                email: email,
+                name: name,
+                password: '-',
+                role: role,
+                auth_provider: AUTH_PROVIDER.GOOGLE,
+                metadata: {
+                    phone_number: phone_number,
+                    picture: picture,
+                    firebase_uid: uid,
+                }
+
+            };
+            return this.signUp(signUpDto);
+        }
+
+        let signInDto: SignInDto = {
+            email: email,
+            auth_provider: AUTH_PROVIDER.GOOGLE,
+            role: role,
+        };
+        return this.signIn(signInDto, clientInfo);
+
+    }
 
     async signUpAdmin(adminSignUpDto: AdminSignUpDto) {
 
@@ -103,7 +164,6 @@ export class AuthService {
 
     }
 
-
     async signUp(signUpDto: SignUpDto) {
         const userData = {
             ...signUpDto,
@@ -160,6 +220,12 @@ export class AuthService {
     async signIn(signInDto: SignInDto, clientInfo: ClientInfo) {
         this.logger.info(`Signing in user ${signInDto.email}`, undefined, AuthService.name);
         try {
+            if (signInDto.role === USER_ROLE.ADMIN) {
+                const admin = await this.adminRepository.findByEmail(signInDto.email);
+                if (!admin) {
+                    throw new UnauthorizedException('You are not authorized to sign in as an admin');
+                }
+            }
 
             await this.checkBruteForceLockout(signInDto.email, clientInfo.ipAddress);
 
@@ -181,6 +247,18 @@ export class AuthService {
                     auth_providers: auth_providers,
                 },
             };
+
+            const isExistsUserAuthProvider = await this.authProviderRepository.isExistsByUserInternalIdAndAuthProviderName(user.id, signInDto.auth_provider);
+            if (!isExistsUserAuthProvider) {
+                const authProviderId = await this.authProviderRepository.findInternalIdByName(signInDto.auth_provider);
+                if (!authProviderId) {
+                    throw new NotFoundException('Auth provider not found');
+                }
+                await this.dbappService.$queryRaw`
+                    INSERT INTO user_auth_providers (user_id, auth_provider_id)
+                    VALUES (${user.id}, ${authProviderId})`;
+            }
+
             const tokens = await this.generateTokens(payload);
 
             this.eventEmitter.emit(
@@ -207,8 +285,6 @@ export class AuthService {
                     id: userData.guid,
                     email: userData.email,
                     name: userData.name,
-                    student: userData.student ?? null,
-                    instructor: userData.instructor ?? null,
                     created_at: userData.created_at,
                     updated_at: userData.updated_at,
                     roles: roles,
@@ -469,15 +545,6 @@ export class AuthService {
                 auth_provider: { name: ap.auth_provider_name }
             }));
 
-        if (
-            !user.auth_providers.some(
-                (up) => up.auth_provider.name === signInDto.auth_provider
-            )
-        ) {
-            throw new UnauthorizedException(
-                'Invalid credentials, you are not authorized to sign in with this provider'
-            );
-        }
 
         if (signInDto.auth_provider === AUTH_PROVIDER.CUSTOM) {
             if (!signInDto.password) {

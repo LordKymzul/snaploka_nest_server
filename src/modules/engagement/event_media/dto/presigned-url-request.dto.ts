@@ -20,7 +20,7 @@ export class PresignedUrlRequestDto {
     @IsOptional()
     guest_name?: string;
 
- 
+
     @ApiProperty({
         description: 'The mime type of the media',
         example: 'image/jpeg',

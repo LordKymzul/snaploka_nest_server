@@ -46,6 +46,23 @@ export class EventPackageController {
     }
   }
 
+  @Get('simple')
+  async findAllSimple(@Query(ValidationPipe) queryEventPackageDto: QueryEventPackageDto) {
+    try {
+      const result = await this.eventPackageService.findAllSimple(queryEventPackageDto);
+      return {
+        message: 'Event packages fetched successfully',
+        status_code: HttpStatus.OK,
+        data: {
+          event_packages: result.eventPackages,
+          pagination: getPagination(result.page, result.limit, result.total),
+        },
+      };
+    } catch (error) {
+      handleError(error, this.appLoggerService, `${EventPackageController.name} - ${this.findAllSimple.name}`);
+    }
+  }
+
   @Get()
   async findAll(@Query(ValidationPipe) queryEventPackageDto: QueryEventPackageDto) {
     try {

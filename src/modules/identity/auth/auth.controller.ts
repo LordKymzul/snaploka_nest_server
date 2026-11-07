@@ -25,6 +25,7 @@ import { AppLoggerService } from 'src/core/logging/app-logger/app-logger.service
 import { log } from 'console';
 import { RefreshJwtGuard } from 'src/core/shared/guard/refresh-jwt.guard';
 import { AdminSignUpDto } from './dto/admin-sign-up.dto';
+import { SignInGoogleDto } from './dto/sign-in-google.dto';
 
 
 @ApiTags('Identity - Auth')
@@ -35,6 +36,25 @@ export class AuthController {
     private readonly logger: AppLoggerService,
   ) { }
 
+
+  @Post('google/login')
+  async signInGoogle(@Body(ValidationPipe) signInGoogleDto: SignInGoogleDto, @GetClientInfo() clientInfo: ClientInfo) {
+    try {
+      console.log('signInGoogleDto', signInGoogleDto);
+      const data = await this.authService.signInGoogle(signInGoogleDto, clientInfo);
+      return {
+        message: 'Google login successful',
+        status_code: HttpStatus.OK,
+        data: {
+          user: data.user,
+          backend_token: data.backendToken,
+        },
+      };
+    }
+    catch (error) {
+      handleError(error, this.logger, AuthController.name);
+    }
+  }
 
 
   @Post('admin/register')

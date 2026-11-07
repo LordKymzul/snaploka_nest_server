@@ -5,6 +5,7 @@ import { EventPackageRepository } from './event_package.repository';
 import { DbappModule } from 'src/core/database/dbapp/dbapp.module';
 import { JwtProtectedMiddleware } from 'src/core/shared/middleware/jwt-protected-middleware';
 import { Config } from 'src/core/util/config';
+import { RequestMethod } from '@nestjs/common';
 
 @Module({
   imports: [DbappModule],
@@ -14,6 +15,11 @@ import { Config } from 'src/core/util/config';
 })
 export class EventPackageModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(JwtProtectedMiddleware).forRoutes(EventPackageController);
+    consumer
+      .apply(JwtProtectedMiddleware)
+      .exclude(
+        { path: 'event-packages/simple', method: RequestMethod.GET }
+      )
+      .forRoutes(EventPackageController);
   }
 }

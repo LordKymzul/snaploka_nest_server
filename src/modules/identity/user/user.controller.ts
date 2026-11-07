@@ -9,6 +9,7 @@ import {
   Query,
   ValidationPipe,
   HttpStatus,
+  UseGuards,
 } from '@nestjs/common';
 import { UserService } from './user.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -17,6 +18,7 @@ import { QueryUserDto } from './dto/query-user.dto';
 import { getPagination, handleError } from 'src/core/util/helper';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { AppLoggerService } from 'src/core/logging/app-logger/app-logger.service';
+import { JwtAdminGuard } from 'src/core/shared/guard/jwt-admin.guard';
 
 @ApiBearerAuth()
 @ApiTags('Identity - Users')
@@ -43,6 +45,7 @@ export class UserController {
     }
   }
 
+  @UseGuards(JwtAdminGuard)
   @Get()
   async findAll(@Query(ValidationPipe) queryUserDto: QueryUserDto) {
     try {

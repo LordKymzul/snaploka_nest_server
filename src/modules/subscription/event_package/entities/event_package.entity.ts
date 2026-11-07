@@ -30,4 +30,6 @@ export class EventPackageEntity {
             deleted_at: eventPackage.deleted_at,
         };
     }
+
+   
 }

@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { CreateEventMediaDto } from './dto/create-event_media.dto';
 import { UpdateEventMediaDto } from './dto/update-event_media.dto';
 import { QueryEventMediaDto } from './dto/query-event_media.dto';
@@ -6,13 +6,16 @@ import { DbappService } from 'src/core/database/dbapp/dbapp.service';
 import { EventRepository } from '../event/event.repository';
 import { EventMediaEntity } from './entities/event_media.entity';
 import { EventMediaRepository } from './event_media.repository';
-import { EVENT_MEDIA_STATUS, EVENT_STATUS, PAGINATION_LIMIT, PAGINATION_PAGE } from 'src/core/util/constant';
+import { EVENT_MEDIA_STATUS, EVENT_MEDIA_TYPE, EVENT_STATUS, PAGINATION_LIMIT, PAGINATION_PAGE } from 'src/core/util/constant';
 import { EventMediaStorageService } from './event_media_storage.service';
 import { PresignedUrlRequestDto } from './dto/presigned-url-request.dto';
 import { PresignedUrlResponseDto } from './dto/presigned-url-response.dto';
 
 @Injectable()
 export class EventMediaService {
+
+  private readonly logger = new Logger(EventMediaService.name);
+
   constructor(
     private readonly dbapp: DbappService,
     private readonly eventRepository: EventRepository,
@@ -100,7 +103,7 @@ export class EventMediaService {
     page: number;
     limit: number;
   }> {
-    const { event_id, status, page, limit } = queryEventMediaDto;
+    const { event_id, status, page, limit, type } = queryEventMediaDto;
 
     const pageNum = Number(page || PAGINATION_PAGE);
     const limitNum = Number(limit || PAGINATION_LIMIT);
@@ -121,6 +124,21 @@ export class EventMediaService {
       whereConditions.push(`em.status = $${paramIndex}`);
       queryParams.push(status);
       paramIndex++;
+    }
+
+    if (type) {
+      const mimeTypeMap: Record<string, string> = {
+        [EVENT_MEDIA_TYPE.IMAGE]: 'image/%',
+        [EVENT_MEDIA_TYPE.VIDEO]: 'video/%',
+        [EVENT_MEDIA_TYPE.AUDIO]: 'audio/%',
+        [EVENT_MEDIA_TYPE.FILE]: 'application/%'
+      };
+      const mimeTypePattern = mimeTypeMap[type];
+      if (mimeTypePattern) {
+        whereConditions.push(`em.mime_type LIKE $${paramIndex}`);
+        queryParams.push(mimeTypePattern);
+        paramIndex++;
+      }
     }
 
     const whereClause = whereConditions.length > 0
@@ -225,7 +243,7 @@ export class EventMediaService {
   async remove(id: string): Promise<EventMediaEntity> {
     const existing = await this.dbapp.eventMedia.findFirst({
       where: { guid: id },
-      select: { id: true, guid: true, event_id: true, file_size_bytes: true },
+      select: { id: true, guid: true, event_id: true, file_size_bytes: true, storage_key: true },
     });
 
     if (!existing) {
@@ -239,12 +257,14 @@ export class EventMediaService {
       });
 
       await tx.$queryRaw`
-        UPDATE event SET
+        UPDATE events SET
           current_media_count = GREATEST(current_media_count - 1, 0),
           current_storage_bytes = GREATEST(current_storage_bytes - ${existing.file_size_bytes}::bigint, 0),
           updated_at = NOW()
         WHERE id = ${existing.event_id}
       `;
+
+      await this.eventMediaStorageService.deleteMedia(existing.storage_key);
     });
 
     return EventMediaEntity.fromDBApplication({
@@ -319,8 +339,10 @@ export class EventMediaService {
       return {
         upload_url: upload_url,
         storage_key: storage_key,
+        event_media_id: createdEventMedia[0].id,
       };
     } catch (error) {
+      this.logger.error(`Failed to generate upload presigned url: ${error}`);
       throw new BadRequestException('Failed to generate upload presigned url');
     }
   }

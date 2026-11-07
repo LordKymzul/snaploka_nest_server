@@ -36,6 +36,36 @@ export class QueryOrderDto {
     payment_provider?: ORDER_PAYMENT_PROVIDER;
 
     @ApiProperty({
+        description: 'Whether to include the event in the response',
+        required: false,
+        example: 'false',
+        enum: ['true', 'false'],
+    })
+    @IsString()
+    @IsOptional()
+    with_event?: 'true' | 'false' = 'false';
+
+    @ApiProperty({
+        description: 'Whether to include the user in the response',
+        required: false,
+        example: 'false',
+        enum: ['true', 'false'],
+    })
+    @IsString()
+    @IsOptional()
+    with_user?: 'true' | 'false' = 'false';
+
+    @ApiProperty({
+        description: 'Whether to include the event package in the response',
+        required: false,
+        example: 'false',
+        enum: ['true', 'false'],
+    })
+    @IsString()
+    @IsOptional()
+    with_event_package?: 'true' | 'false' = 'false';
+
+    @ApiProperty({
         description: 'The limit of the orders',
         required: false,
         example: PAGINATION_LIMIT,

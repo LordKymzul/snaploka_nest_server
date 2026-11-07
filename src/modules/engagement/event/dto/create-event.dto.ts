@@ -7,9 +7,12 @@ import {
     IsEnum,
     IsObject,
     MaxLength,
+    IsNumber,
+    ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { EVENT_TYPE } from 'src/core/util/constant';
+import { EVENT_ACCESS_MODE, EVENT_TYPE } from 'src/core/util/constant';
+import { CreateEventBankAccountDto } from '../../event_bank_account/dto/create-event_bank_account.dto';
 
 export class CreateEventDto {
 
@@ -75,6 +78,37 @@ export class CreateEventDto {
     @IsOptional()
     @IsObject()
     metadata?: Record<string, any>;
+
+
+    @ApiProperty({
+        description: 'The access mode of the event',
+        example: EVENT_ACCESS_MODE.READ_WRITE,
+        required: true,
+    })
+    @IsEnum(EVENT_ACCESS_MODE)
+    @IsOptional()
+    access_mode?: EVENT_ACCESS_MODE;
+
+
+    @ApiProperty({
+        description: 'The mime type of the media',
+        example: 'image/jpeg',
+        required: true,
+    })
+    @IsString()
+    @IsOptional()
+    thumbnail_mime_type?: string;
+
+    @ApiProperty({
+        description: 'The file size of the media',
+        example: 1000,
+        required: true,
+    })
+    @IsNumber()
+    @IsOptional()
+    thumbnail_file_size?: number;
+
+
 }
 
 

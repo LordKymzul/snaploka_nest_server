@@ -10,6 +10,26 @@ export class QueryUserDto {
 
 
     @ApiProperty({
+        description: 'The inactive status of the user',
+        required: false,
+        enum: ['true', 'false'],
+        example: 'false',
+    })
+    @IsString()
+    @IsOptional()
+    with_auth_providers?: 'true' | 'false' = 'false';
+
+    @ApiProperty({
+        description: 'The inactive status of the user',
+        required: false,
+        enum: ['true', 'false'],
+        example: 'false',
+    })
+    @IsString()
+    @IsOptional()
+    with_roles?: 'true' | 'false' = 'false';
+
+    @ApiProperty({
         description: 'The keyword of the user',
         required: false,
     })

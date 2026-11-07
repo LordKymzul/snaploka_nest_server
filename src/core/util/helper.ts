@@ -242,3 +242,6 @@ export const GetClientInfo = createParamDecorator(
         return { ipAddress, userAgent };
     },
 );
+
+
+export const toNumberIfBigInt = (value: any) => typeof value === 'bigint' ? Number(value) : value;

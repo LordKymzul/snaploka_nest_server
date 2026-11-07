@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, ValidateIf } from 'class-validator';
-import { AUTH_PROVIDER } from 'src/core/util/constant';
+import { AUTH_PROVIDER, USER_ROLE } from 'src/core/util/constant';
 
 export class SignInDto {
 
@@ -34,5 +34,17 @@ export class SignInDto {
     @IsEnum(AUTH_PROVIDER)
     @IsNotEmpty()
     auth_provider: AUTH_PROVIDER;
+
+
+
+    @ApiProperty({
+        description: `The role of the user contain ${Object.values(USER_ROLE).join(', ')}`,
+        example: USER_ROLE.ADMIN,
+        required: true,
+        enum: USER_ROLE,
+    })
+    @IsEnum(USER_ROLE)
+    @IsNotEmpty()
+    role: USER_ROLE;
 }
 

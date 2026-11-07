@@ -9,6 +9,9 @@ import { Config } from 'src/core/util/config';
 import { AuthListener } from './auth.listener';
 import { LoginAttemptService } from '../login_attempt/login_attempt.service';
 import { LoginAttemptModule } from '../login_attempt/login_attempt.module';
+import { AdminModule } from '../admin/admin.module';
+import { FirebaseModule } from 'src/core/shared/firebase/firebase.module';
+import { AuthProviderModule } from '../auth_provider/auth_provider.module';
 
 @Module({
   imports: [
@@ -16,6 +19,9 @@ import { LoginAttemptModule } from '../login_attempt/login_attempt.module';
     JwtModule.register({}),
     UserModule,
     DbappModule,
+    AdminModule,
+    FirebaseModule,
+    AuthProviderModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, AuthListener, Config],

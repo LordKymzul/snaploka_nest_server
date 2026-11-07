@@ -1,4 +1,4 @@
-import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule, RequestMethod } from '@nestjs/common';
 import { EventMediaService } from './event_media.service';
 import { EventMediaController } from './event_media.controller';
 import { EventMediaRepository } from './event_media.repository';
@@ -22,12 +22,19 @@ import { FirebaseModule } from 'src/core/shared/firebase/firebase.module';
     EventRepository,
     EventMediaStorageService,
   ],
-  exports: [EventMediaService, EventMediaRepository],
+  exports: [EventMediaService, EventMediaRepository, EventMediaStorageService],
 })
 export class EventMediaModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer
       .apply(JwtProtectedMiddleware)
-      .forRoutes(EventMediaController);
+      .exclude(
+        { path: 'event-media/presigned-url', method: RequestMethod.POST },
+        { path: 'event-media/confirm-upload', method: RequestMethod.POST },
+        { path: 'event-media/event/:event_id', method: RequestMethod.GET },
+      )
+      .forRoutes(
+        { path: 'event-media', method: RequestMethod.ALL }
+      );
   }
 }

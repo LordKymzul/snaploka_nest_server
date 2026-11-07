@@ -1,6 +1,12 @@
-import { IsEnum, IsNumber, IsOptional, IsString } from 'class-validator';
+import {
+    IsEnum,
+    IsNumber,
+    IsOptional,
+    IsString
+} from 'class-validator';
 import {
     EVENT_MEDIA_STATUS,
+    EVENT_MEDIA_TYPE,
     PAGINATION_LIMIT,
     PAGINATION_PAGE
 } from 'src/core/util/constant';
@@ -26,6 +32,16 @@ export class QueryEventMediaDto {
     @IsEnum(EVENT_MEDIA_STATUS)
     @IsOptional()
     status?: EVENT_MEDIA_STATUS;
+
+
+    @ApiProperty({
+        description: `The type of the media ${Object.values(EVENT_MEDIA_TYPE).join(', ')}`,
+        required: false,
+        enum: Object.values(EVENT_MEDIA_TYPE),
+    })
+    @IsEnum(EVENT_MEDIA_TYPE)
+    @IsOptional()
+    type?: EVENT_MEDIA_TYPE;
 
 
     @ApiProperty({

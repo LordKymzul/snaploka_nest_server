@@ -1,4 +1,4 @@
-export class Admin {
+export class AdminEntity {
     id: string;
     user_id: number;
     is_active: boolean;
@@ -6,7 +6,7 @@ export class Admin {
     created_at: Date;
     updated_at: Date;
 
-    static fromDBApplication(data: any): Admin {
+    static fromDBApplication(data: any): AdminEntity {
         return {
             id: data.id,
             user_id: data.user_id,

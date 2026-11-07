@@ -1,5 +1,5 @@
 import { IsEnum, IsNumber, IsOptional, IsString } from 'class-validator';
-import { EVENT_STATUS, EVENT_TYPE, PAGINATION_LIMIT, PAGINATION_PAGE } from 'src/core/util/constant';
+import { EVENT_ACCESS_MODE, EVENT_STATUS, EVENT_TYPE, PAGINATION_LIMIT, PAGINATION_PAGE } from 'src/core/util/constant';
 import { Transform } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 
@@ -22,6 +22,15 @@ export class QueryEventDto {
     @IsEnum(EVENT_STATUS)
     @IsOptional()
     status?: EVENT_STATUS;
+
+    @ApiProperty({
+        description: `The access mode of the event ${Object.values(EVENT_ACCESS_MODE).join(', ')}`,
+        required: false,
+        enum: Object.values(EVENT_ACCESS_MODE),
+    })
+    @IsEnum(EVENT_ACCESS_MODE)
+    @IsOptional()
+    access_mode?: EVENT_ACCESS_MODE;
 
 
     @ApiProperty({
@@ -53,5 +62,15 @@ export class QueryEventDto {
     @IsOptional()
     @Transform(({ value }) => Number(value))
     page: number = PAGINATION_PAGE;
+
+
+    @ApiProperty({
+        description: 'Whether to include the order in the response',
+        required: false,
+        enum: ['true', 'false'],
+    })
+    @IsString()
+    @IsOptional()
+    with_order?: 'true' | 'false' = 'false';
 }
 

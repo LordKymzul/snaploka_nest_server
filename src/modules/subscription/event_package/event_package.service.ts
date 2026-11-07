@@ -6,6 +6,7 @@ import { DbappService } from 'src/core/database/dbapp/dbapp.service';
 import { EventPackageEntity } from './entities/event_package.entity';
 import { PAGINATION_LIMIT, PAGINATION_PAGE } from 'src/core/util/constant';
 import { EventPackageRepository } from './event_package.repository';
+import { EventPackageSimpleEntity } from './entities/event_package-simple.entity';
 
 @Injectable()
 export class EventPackageService {
@@ -189,4 +190,80 @@ export class EventPackageService {
       id: eventPackage.guid,
     });
   }
+
+
+  async findAllSimple(queryEventPackageDto: QueryEventPackageDto): Promise<{
+    total: number;
+    eventPackages: EventPackageSimpleEntity[];
+    page: number;
+    limit: number;
+  }> {
+    const { keyword, page, limit, is_active } = queryEventPackageDto;
+
+    const pageNum = Number(page || PAGINATION_PAGE);
+    const limitNum = Number(limit || PAGINATION_LIMIT);
+    const skip = (pageNum - PAGINATION_PAGE) * limitNum;
+    const take = limitNum;
+
+    const whereConditions: string[] = ['ep.deleted_at IS NULL'];
+    const queryParams: any[] = [];
+    let paramIndex = 1;
+
+    if (keyword) {
+      whereConditions.push(`LOWER(ep.name) LIKE LOWER(CONCAT('%', $${paramIndex}, '%'))`);
+      queryParams.push(keyword);
+      paramIndex++;
+    }
+
+    if (is_active !== undefined) {
+      whereConditions.push(`ep.is_active = $${paramIndex}`);
+      queryParams.push(is_active === 'true');
+      paramIndex++;
+    }
+
+    const whereClause = `WHERE ${whereConditions.join(' AND ')}`;
+
+    const query = `
+      SELECT
+        ep.guid as id,
+        ep.name,
+        ep.description,
+        ep.price,
+        ep.currency,
+        ep.max_media_count,
+        ep.max_media_size,
+        ep.metadata
+      FROM event_packages ep
+      ${whereClause}
+      ORDER BY ep.created_at DESC
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+    `;
+
+    queryParams.push(take, skip);
+
+    const countQuery = `
+      SELECT COUNT(*)::int as total
+      FROM event_packages ep
+      ${whereClause}
+    `;
+
+    const countParams = queryParams.slice(0, -2);
+
+    const [totalResult, eventPackages] = await Promise.all([
+      this.dbapp.$queryRawUnsafe<any[]>(countQuery, ...countParams),
+      this.dbapp.$queryRawUnsafe<any[]>(query, ...queryParams),
+    ]);
+
+    const total = totalResult[0]?.total || 0;
+
+    return {
+      total,
+      eventPackages: eventPackages.map((ep) =>
+        EventPackageSimpleEntity.fromDBApplication(ep),
+      ),
+      page: pageNum,
+      limit: limitNum,
+    };
+  }
+
 }

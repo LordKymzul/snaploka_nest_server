@@ -61,19 +61,14 @@ export class EventController {
     }
   }
 
-  @Get('qr-code/:id')
+  @Get(':id/qr-code')
   async getEventQrCode(
     @Param('id') id: string,
     @Res() res: Response,
   ) {
     try {
       const qrCode = await this.eventService.getEventQrCode(id);
-      res.setHeader('Content-Type', 'image/png');
-      res.setHeader(
-        'Content-Disposition',
-        `inline; filename="qr-${id}.png"`,
-      );
-      res.setHeader('Cache-Control', 'public, max-age=86400');
+      res.setHeader('Content-Type', 'image/svg+xml');
       return res.send(qrCode);
     } catch (error) {
       handleError(error, this.appLoggerService, `${EventController.name} - ${this.getEventQrCode.name}`);

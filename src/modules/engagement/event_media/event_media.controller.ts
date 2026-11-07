@@ -41,6 +41,7 @@ export class EventMediaController {
         data: {
           upload_url: presignedUrl.upload_url,
           storage_key: presignedUrl.storage_key,
+          event_media_id: presignedUrl.event_media_id,
         },
       };
     } catch (error) {

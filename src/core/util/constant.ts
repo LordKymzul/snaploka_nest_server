@@ -425,6 +425,13 @@ export enum EVENT_MEDIA_STATUS {
     REJECTED = 'REJECTED'
 }
 
+export enum EVENT_MEDIA_TYPE {
+    IMAGE = 'IMAGE',
+    VIDEO = 'VIDEO',
+    AUDIO = 'AUDIO',
+    FILE = 'FILE',
+}
+
 export enum ORDER_STATUS {
     PENDING = 'PENDING',
     PAID = 'PAID',
@@ -438,4 +445,26 @@ export enum ORDER_PAYMENT_PROVIDER {
     MIDTRANS = 'MIDTRANS',
     XENDIT = 'XENDIT',
     PAYPAL = 'PAYPAL',
+}
+
+export enum EVENT_ACCESS_MODE {
+    READ_WRITE = 'READ_WRITE',
+    READ_ONLY = 'READ_ONLY',
+    WRITE_ONLY = 'WRITE_ONLY',
+}
+
+export enum EVENT_NOTE_STATUS {
+    PUBLISHED = 'PUBLISHED',
+    DELETED = 'DELETED',
+}
+export enum EVENT_BANK_ACCOUNT_TYPE {
+    BRIDE = 'BRIDE',
+    GROOM = 'GROOM',
+}
+
+export enum EVENT_ATTACHMENT_STATUS {
+    PENDING = 'PENDING',
+    APPROVED = 'APPROVED',
+    REJECTED = 'REJECTED',
+    DELETED = 'DELETED',
 }

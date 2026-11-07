@@ -1,6 +1,8 @@
 import {
     Inject,
-    Injectable
+    Injectable,
+    NotFoundException,
+    UnauthorizedException
 } from '@nestjs/common';
 import { App } from 'firebase-admin/app';
 import {
@@ -11,6 +13,10 @@ import {
     getMessaging,
     Messaging,
 } from 'firebase-admin/messaging';
+import {
+    getAuth,
+    Auth,
+} from 'firebase-admin/auth';
 
 @Injectable()
 export class FirebaseService {
@@ -25,4 +31,24 @@ export class FirebaseService {
     getMessaging(): Messaging {
         return getMessaging(this.admin);
     }
+
+    getAuth(): Auth {
+        return getAuth(this.admin);
+    }
+
+    // async verifyIdToken(token: string): Promise<DecodedIdToken> {
+    //     try {
+    //         return await this.getAuth().verifyIdToken(token);
+    //     } catch (error) {
+    //         throw new UnauthorizedException('Invalid token');
+    //     }
+    // }
+
+    // async getUserByUid(uid: string): Promise<UserRecord> {
+    //     try {
+    //         return await this.getAuth().getUser(uid);
+    //     } catch (error) {
+    //         throw new NotFoundException('User not found');
+    //     }
+    // }
 }
